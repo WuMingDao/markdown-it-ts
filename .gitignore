@@ -6,3 +6,4 @@ apidoc/
 dist/
 *.log
 .eslintcache
+package-lock.json
