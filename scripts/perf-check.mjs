@@ -14,6 +14,8 @@ function fmtPct(x) { return (x * 100).toFixed(1) + '%' }
 function main() {
   const args = process.argv.slice(2)
   const thArg = args.find(a => a.startsWith('--threshold='))
+  const baseArg = args.find(a => a.startsWith('--base='))
+  const useLatest = args.includes('--latest')
   const threshold = thArg ? parseFloat(thArg.split('=')[1]) : 0.10
 
   const latestPath = new URL('../docs/perf-latest.json', import.meta.url)
@@ -29,8 +31,15 @@ function main() {
   }
   // sort by mtime desc
   files.sort((a,b)=> statSync(join(histDir.pathname, b)).mtimeMs - statSync(join(histDir.pathname, a)).mtimeMs)
-  const pick = files.find(f => !currentSha || !f.includes(currentSha)) || files[0]
-  const basePath = new URL(pick, histDir)
+  let basePath
+  if (baseArg) {
+    basePath = new URL(baseArg.split('=')[1], histDir)
+  } else if (useLatest) {
+    basePath = new URL(files[0], histDir) // pick most recent, even if same SHA
+  } else {
+    const pick = files.find(f => !currentSha || !f.includes(currentSha)) || files[0]
+    basePath = new URL(pick, histDir)
+  }
 
   const cur = load(latestPath)
   const base = load(basePath)

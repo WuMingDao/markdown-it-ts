@@ -33,11 +33,21 @@ function splitParasIntoSteps(paras, steps) {
 }
 
 function measure(fn, iters = 1) {
+  // Runs fn() iters times and returns total ms and last result
   const t0 = performance.now()
   let res
   for (let i = 0; i < iters; i++) res = fn()
   const t1 = performance.now()
   return { ms: t1 - t0, res }
+}
+
+function pickIters(size) {
+  // Increase iterations for small sizes to reduce timer noise
+  if (size <= 5_000) return { oneIters: 30, appRepeats: 6 }
+  if (size <= 20_000) return { oneIters: 20, appRepeats: 5 }
+  if (size <= 50_000) return { oneIters: 10, appRepeats: 4 }
+  if (size <= 100_000) return { oneIters: 6, appRepeats: 3 }
+  return { oneIters: 4, appRepeats: 2 }
 }
 
 function fmt(ms) { return `${ms.toFixed(2)}ms` }
@@ -69,6 +79,7 @@ function runMatrix() {
     const paras = makeParasByChars(size)
     const doc = paras.join('')
     const appParts = splitParasIntoSteps(paras, APP_STEPS)
+    const { oneIters, appRepeats } = pickIters(size)
 
     for (const sc of scenarios) {
       const md = sc.make()
@@ -76,34 +87,56 @@ function runMatrix() {
   const envOne = { bench: true }
 
       // one-shot
+      // warmup
+      if (sc.type.startsWith('stream')) md.stream.parse(doc, envStream)
+      else if (sc.type === 'md-original') md.parse(doc, {})
+      else md.parse(doc, envOne)
       const one = measure(() => (
         sc.type.startsWith('stream') ? md.stream.parse(doc, envStream)
         : sc.type === 'md-original' ? md.parse(doc, {})
         : md.parse(doc, envOne)
-      ))
+      ), oneIters)
 
       // append workload
-  let acc = ''
+      // warmup append sequence once (not timed)
+      {
+        let accWarm = ''
+        const envAppendWarm = { bench: true }
+        for (let i = 0; i < appParts.length; i++) {
+          if (accWarm.length && accWarm.charCodeAt(accWarm.length - 1) !== 0x0A) accWarm += '\n'
+          let piece = appParts[i]
+          if (piece.length && piece.charCodeAt(piece.length - 1) !== 0x0A) piece += '\n'
+          accWarm += piece
+          if (sc.type === 'stream-no-cache-chunk') md.stream.reset()
+          if (sc.type.startsWith('stream')) md.stream.parse(accWarm, envStream)
+          else if (sc.type === 'md-original') md.parse(accWarm, {})
+          else md.parse(accWarm, envAppendWarm)
+        }
+      }
   let appendMs = 0
   const envAppend = { bench: true }
-      for (let i = 0; i < appParts.length; i++) {
-        if (acc.length && acc.charCodeAt(acc.length - 1) !== 0x0A) acc += '\n'
-        let piece = appParts[i]
-        if (piece.length && piece.charCodeAt(piece.length - 1) !== 0x0A) piece += '\n'
-        acc += piece
-        if (sc.type === 'stream-no-cache-chunk') md.stream.reset()
-        const t = performance.now()
+      for (let rep = 0; rep < appRepeats; rep++) {
+        let acc = ''
+        for (let i = 0; i < appParts.length; i++) {
+          if (acc.length && acc.charCodeAt(acc.length - 1) !== 0x0A) acc += '\n'
+          let piece = appParts[i]
+          if (piece.length && piece.charCodeAt(piece.length - 1) !== 0x0A) piece += '\n'
+          acc += piece
+          if (sc.type === 'stream-no-cache-chunk') md.stream.reset()
+          const t = performance.now()
   if (sc.type.startsWith('stream')) md.stream.parse(acc, envStream)
   else if (sc.type === 'md-original') md.parse(acc, {})
   else md.parse(acc, envAppend)
-        appendMs += performance.now() - t
+          appendMs += performance.now() - t
+        }
       }
+      appendMs = appendMs / appRepeats
 
       const stat = {
         size,
         scenario: sc.id,
         label: sc.label,
-        oneShotMs: one.ms,
+  oneShotMs: one.ms / oneIters,
         appendWorkloadMs: appendMs,
         lastMode: md.stream?.stats?.().lastMode || 'n/a',
         appendHits: md.stream?.stats?.().appendHits || 0,

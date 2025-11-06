@@ -1,5 +1,7 @@
 # markdown-it-ts
 
+English | [简体中文](./README.zh-CN.md)
+
 A TypeScript migration of [markdown-it](https://github.com/markdown-it/markdown-it) with modular architecture for tree-shaking and separate parse/render imports.
 
 ## 🚀 Migration Status: 100% Complete
@@ -189,6 +191,15 @@ To make sure each change is not slower than the previous run at any tested size/
 - Compare two snapshots (fail on regressions beyond threshold):
   - `node scripts/perf-compare.mjs docs/perf-latest.json docs/perf-history/perf-<baselineSHA>.json --threshold=0.10`
 
+- Accept the latest run as the new baseline (after manual review):
+  - `pnpm run perf:accept`
+
+- Run the regression check against the most recent baseline (same harness):
+  - `pnpm run perf:check:latest`
+
+- Inspect detailed deltas by size/scenario (sorted by worst):
+  - `pnpm run perf:diff`
+
 See `docs/perf-regression.md` for details and CI usage.
 
 ## Parse performance vs markdown-it
@@ -197,10 +208,10 @@ Latest one-shot parse results on this machine (Node.js v23): markdown-it-ts is r
 
 Examples from the latest run (avg over 20 iterations):
 <!-- perf-auto:one-examples:start -->
-- 5,000 chars: 0.60ms vs 6.09ms → ~10.2× faster (0.10× time)
-- 20,000 chars: 1.31ms vs 2.67ms → ~2.0× faster (0.49× time)
-- 50,000 chars: 2.26ms vs 2.29ms → ~1.0× faster (0.99× time)
-- 100,000 chars: 5.35ms vs 5.85ms → ~1.1× faster (0.91× time)
+- 5,000 chars: 0.00ms vs 0.40ms → ~2081.1× faster (0.00× time)
+- 20,000 chars: 0.96ms vs 0.90ms → ~0.9× faster (1.06× time)
+- 50,000 chars: 2.55ms vs 2.33ms → ~0.9× faster (1.10× time)
+- 100,000 chars: 5.93ms vs 6.55ms → ~1.1× faster (0.91× time)
 <!-- perf-auto:one-examples:end -->
 
 Notes
@@ -211,7 +222,7 @@ Reproduce locally
 
 ```bash
 pnpm build
-node scripts/bench-compare.mjs
+node scripts/quick-benchmark.mjs
 ```
 
 This will update `docs/perf-latest.md` and refresh the snippet above.
@@ -219,6 +230,14 @@ This will update `docs/perf-latest.md` and refresh the snippet above.
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request for any enhancements or bug fixes.
+
+## Acknowledgements
+
+markdown-it-ts is a TypeScript re-implementation that stands on the shoulders of
+[markdown-it](https://github.com/markdown-it/markdown-it). We are deeply grateful to
+the original project and its maintainers and contributors (notably Vitaly Puzrin and
+the markdown-it community). Many ideas, algorithms, renderer behaviors, specs, and
+fixtures originate from markdown-it; this project would not exist without that work.
 
 ## License
 
