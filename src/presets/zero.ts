@@ -1,4 +1,4 @@
-import type { MarkdownItOptions } from '../types/index.d'
+import type { MarkdownItOptions } from '../index'
 
 const zeroPreset = {
   options: {

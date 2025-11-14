@@ -1,6 +1,7 @@
 import type { Token } from '../common/token'
 import type { MarkdownIt } from '../index'
 import type { ParserCore } from '../parse/parser_core'
+import { countLines } from '../common/utils'
 import { chunkedParse } from './chunked'
 
 interface StreamCache {
@@ -43,9 +44,7 @@ export class StreamParser {
   // Only use stream optimization for documents larger than this threshold
   private readonly MIN_SIZE_FOR_OPTIMIZATION = 1000 // characters
 
-  // Track recent parse times to adaptively adjust strategy
-  private recentParseTimes: number[] = []
-  private readonly MAX_RECENT_SAMPLES = 10
+  // (reserved for future adaptive strategy metrics)
 
   constructor(core: ParserCore) {
     this.core = core
@@ -81,7 +80,7 @@ export class StreamParser {
       const auto = md.options?.autoTuneChunks !== false
       const chunkFenceAware = md.options?.streamChunkFenceAware ?? true
 
-      const srcLineCount = this.countLines(src)
+      const srcLineCount = countLines(src)
       const isVeryLargeOneShot = (src.length >= (md.options?.fullChunkThresholdChars ?? 20_000) * 2.5) || (srcLineCount >= (md.options?.fullChunkThresholdLines ?? 400) * 2.5)
 
       // Heuristic: very large one-shot payloads are likely history restore/display.
@@ -140,7 +139,7 @@ export class StreamParser {
 
       const state = this.core.parse(src, workingEnv, md)
       const tokens = state.tokens
-      const lineCount = this.countLines(src)
+      const lineCount = countLines(src)
 
       this.cache = { src, tokens, env: workingEnv, lineCount }
       this.stats.total += 1
@@ -166,7 +165,7 @@ export class StreamParser {
       const fallbackEnv = envProvided ?? cached.env
       const fullState = this.core.parse(src, fallbackEnv, md)
       const nextTokens = fullState.tokens
-      const lineCount = this.countLines(src)
+      const lineCount = countLines(src)
       this.cache = { src, tokens: nextTokens, env: fallbackEnv, lineCount }
       this.stats.total += 1
       this.stats.fullParses += 1
@@ -186,7 +185,7 @@ export class StreamParser {
       const appendedState = this.core.parse(appended, cached.env, md)
 
       // Use cached line count if available
-      const lineOffset = cached.lineCount ?? this.countLines(cached.src)
+      const lineOffset = cached.lineCount ?? countLines(cached.src)
 
       if (lineOffset > 0)
         this.shiftTokenLines(appendedState.tokens, lineOffset)
@@ -196,7 +195,7 @@ export class StreamParser {
 
       // Update cache with new src and line count
       cached.src = src
-      cached.lineCount = lineOffset + this.countLines(appended)
+      cached.lineCount = lineOffset + countLines(appended)
 
       this.stats.total += 1
       this.stats.appendHits += 1
@@ -215,7 +214,7 @@ export class StreamParser {
     const auto = md.options?.autoTuneChunks !== false
     const chunkFenceAware = md.options?.streamChunkFenceAware ?? true
 
-    const srcLineCount2 = this.countLines(src)
+    const srcLineCount2 = countLines(src)
     if (chunkedEnabled) {
       const clamp = (v: number, lo: number, hi: number) => v < lo ? lo : (v > hi ? hi : v)
       let useChars = chunkAdaptive ? clamp(Math.ceil(src.length / targetChunks), 8000, 32000) : (chunkSizeCharsCfg ?? 10000)
@@ -259,7 +258,7 @@ export class StreamParser {
 
     const fullState = this.core.parse(src, fallbackEnv, md)
     const nextTokens = fullState.tokens
-    const lineCount = this.countLines(src)
+    const lineCount = countLines(src)
     this.cache = { src, tokens: nextTokens, env: fallbackEnv, lineCount }
     this.stats.total += 1
     this.stats.fullParses += 1
@@ -309,7 +308,48 @@ export class StreamParser {
         return null
     }
 
+    // Heuristic safety: if previous content ends inside an open fenced code block,
+    // avoid append fast-path since closing fence in appended segment would
+    // retroactively change prior tokens.
+    if (this.endsInsideOpenFence(prev))
+      return null
+
     return segment
+  }
+
+  // Detect if the given text ends while still inside an open fenced code block.
+  // Scans backwards in a bounded window for performance.
+  private endsInsideOpenFence(text: string): boolean {
+    const WINDOW = 4000
+    const start = text.length > WINDOW ? text.length - WINDOW : 0
+    const chunk = text.slice(start)
+    const lines = chunk.split('\n')
+    let inFence: { marker: '`' | '~', length: number } | null = null
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      // skip leading spaces/tabs
+      let p = 0
+      while (p < line.length) {
+        const c = line.charCodeAt(p)
+        if (c === 0x20 /* space */ || c === 0x09 /* tab */)
+          p++
+        else
+          break
+      }
+      const ch = line[p]
+      if (ch === '`' || ch === '~') {
+        let q = p
+        while (q < line.length && line[q] === ch) q++
+        const runLen = q - p
+        if (runLen >= 3) {
+          if (!inFence)
+            inFence = { marker: ch as '`' | '~', length: runLen }
+          else if (inFence.marker === ch && runLen >= inFence.length)
+            inFence = null
+        }
+      }
+    }
+    return inFence !== null
   }
 
   public peek(): Token[] {
@@ -320,19 +360,7 @@ export class StreamParser {
     return { ...this.stats }
   }
 
-  private countLines(input: string): number {
-    if (input.length === 0)
-      return 0
-
-    let count = 0
-    // Optimized: use indexOf in a loop instead of char-by-char
-    let pos = -1
-    while ((pos = input.indexOf('\n', pos + 1)) !== -1) {
-      count++
-    }
-
-    return count
-  }
+  // countLines moved to common utils for reuse
 
   private shiftTokenLines(tokens: Token[], offset: number): void {
     if (offset === 0)
@@ -358,21 +386,7 @@ export class StreamParser {
     }
   }
 
-  // Extend end-line map for all tokens that currently end on oldEndLine.
-  // This is used when appending a single trailing newline, which doesn't
-  // introduce new tokens but advances the end line number by 1.
-  private extendEndingLine(tokens: Token[], oldEndLine: number, delta: number): void {
-    const stack: Token[] = [...tokens]
-    while (stack.length > 0) {
-      const t = stack.pop()!
-      if (t.map && t.map[1] === oldEndLine)
-        t.map = [t.map[0], t.map[1] + delta]
-      if (t.children) {
-        for (let i = t.children.length - 1; i >= 0; i--)
-          stack.push(t.children[i])
-      }
-    }
-  }
+  // (no-op placeholder: extendEndingLine removed as unused)
 }
 
 export default StreamParser

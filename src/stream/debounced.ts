@@ -23,7 +23,7 @@ import type { MarkdownIt } from '../index'
 export class DebouncedStreamParser {
   private md: MarkdownIt
   private debounceMs: number
-  private timeoutId: NodeJS.Timeout | null = null
+  private timeoutId: ReturnType<typeof setTimeout> | null = null
   private pendingCallback: ((tokens: Token[]) => void) | null = null
   private lastText: string = ''
   private lastTokens: Token[] = []
@@ -140,7 +140,7 @@ export class ThrottledStreamParser {
   private md: MarkdownIt
   private throttleMs: number
   private lastParseTime = 0
-  private timeoutId: NodeJS.Timeout | null = null
+  private timeoutId: ReturnType<typeof setTimeout> | null = null
   private pendingText: string | null = null
   private pendingCallback: ((tokens: Token[]) => void) | null = null
   private lastTokens: Token[] = []

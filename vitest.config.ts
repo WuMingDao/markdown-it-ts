@@ -1,4 +1,7 @@
+import process from 'node:process'
 import { defineConfig } from 'vitest/config'
+
+const runOriginal = process.env.RUN_ORIGINAL === '1'
 
 export default defineConfig({
   test: {
@@ -19,6 +22,8 @@ export default defineConfig({
       'test/original/pathological_worker_thread.mjs',
       'test/original/pathological.json',
       'test/original/cjs.js',
+      // Skip original markdown-it suite unless explicitly enabled
+      ...(runOriginal ? [] : ['test/original/**']),
     ],
   },
 })

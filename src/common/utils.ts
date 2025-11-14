@@ -238,3 +238,13 @@ export function escapeRE(str: string): string {
 export const lib = { mdurl, ucmicro } as const
 
 export { mdurl, ucmicro }
+
+// Count number of line breaks ("\n") in a string without allocating arrays
+export function countLines(input: string): number {
+  if (input.length === 0)
+    return 0
+  let count = 0
+  let pos = -1
+  while ((pos = input.indexOf('\n', pos + 1)) !== -1) count++
+  return count
+}

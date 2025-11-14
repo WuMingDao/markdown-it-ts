@@ -26,7 +26,7 @@ const CORE_RULES: ReadonlyArray<[string, (state: State) => void]> = [
 ]
 
 const DEFAULT_OPTIONS_TEMPLATE = {
-  html: true,
+  html: false,
   xhtmlOut: false,
   breaks: false,
   langPrefix: 'language-',

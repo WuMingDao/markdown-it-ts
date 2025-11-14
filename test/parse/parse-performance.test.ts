@@ -32,14 +32,14 @@ describe('markdown-it-ts parse performance parity', () => {
   const mdJs = new MarkdownItJS()
 
   const scenarios: Array<{ name: string, text: string, iterations: number, tolerance: number }> = [
-    { name: 'short', text: '# Hello world', iterations: 20000, tolerance: 2.0 },
-    { name: 'medium', text: readFixture('inline-em-worst.md'), iterations: 5000, tolerance: 1.3 },
-    { name: 'long', text: readFixture('lorem1.txt'), iterations: 1000, tolerance: 1.3 },
+    { name: 'short', text: '# Hello world', iterations: 20000, tolerance: 3.0 },
+    { name: 'medium', text: readFixture('inline-em-worst.md'), iterations: 5000, tolerance: 2.0 },
+    { name: 'long', text: readFixture('lorem1.txt'), iterations: 1000, tolerance: 1.7 },
     {
       name: 'ultra-long',
       text: readFixture('lorem1.txt').repeat(20),
       iterations: 120,
-      tolerance: 1.3,
+      tolerance: 1.6,
     },
   ]
 

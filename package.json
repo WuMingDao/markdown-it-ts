@@ -2,6 +2,7 @@
   "name": "markdown-it-ts",
   "type": "module",
   "version": "0.0.2-beta.3",
+  "packageManager": "pnpm@9.0.0",
   "description": "A TypeScript implementation of the markdown-it library with separate parse and render functionalities.",
   "author": "Your Name",
   "license": "MIT",
@@ -11,10 +12,43 @@
     "renderer",
     "typescript"
   ],
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./plugins/with-renderer": {
+      "types": "./dist/plugins/with-renderer.d.ts",
+      "import": "./dist/plugins/with-renderer.js"
+    },
+    "./render/renderer": {
+      "types": "./dist/render/renderer.d.ts",
+      "import": "./dist/render/renderer.js"
+    },
+    "./stream/buffer": {
+      "types": "./dist/stream/buffer.d.ts",
+      "import": "./dist/stream/buffer.js"
+    },
+    "./stream/chunked": {
+      "types": "./dist/stream/chunked.d.ts",
+      "import": "./dist/stream/chunked.js"
+    },
+    "./stream/debounced": {
+      "types": "./dist/stream/debounced.d.ts",
+      "import": "./dist/stream/debounced.js"
+    },
+    "./support/chunk_recommend": {
+      "types": "./dist/support/chunk_recommend.d.ts",
+      "import": "./dist/support/chunk_recommend.js"
+    },
+    "./common/token": {
+      "types": "./dist/common/token.d.ts",
+      "import": "./dist/common/token.js"
+    },
+    "./common/utils": {
+      "types": "./dist/common/utils.d.ts",
+      "import": "./dist/common/utils.js"
     }
   },
   "main": "dist/index.js",
@@ -23,6 +57,9 @@
   "files": [
     "dist"
   ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsdown",
     "test": "vitest",
@@ -33,7 +70,9 @@
     "gh-demo": "npm run demo && gh-pages -d demo -f -b master -r git@github.com:markdown-it/markdown-it.github.io.git",
     "lint": "eslint . --cache",
     "lint:fix": "pnpm run lint --fix",
-    "typecheck": "vue-tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:original": "RUN_ORIGINAL=1 pnpm test",
+    "test:original:network": "RUN_ORIGINAL=1 RUN_NETWORK=1 pnpm test",
     "release": "bumpp --commit --tag --push && pnpm publish",
     "perf:matrix": "npm run build && node scripts/perf-matrix.mjs",
     "perf:sweep": "npm run build && node scripts/full-vs-chunked-sweep.mjs",
@@ -51,6 +90,14 @@
     "perf:accept": "npm run perf:generate && node scripts/perf-accept.mjs",
     "perf:generate:zh": "npm run build && node scripts/perf-generate-report.zh.mjs"
   },
+  "scriptsMeta": {
+    "test:original": {
+      "description": "Run optional upstream/original tests (requires RUN_ORIGINAL=1)."
+    },
+    "test:original:network": {
+      "description": "Run original tests with network CRC (RUN_NETWORK=1)."
+    }
+  },
   "dependencies": {
     "entities": "^4.5.0",
     "linkify-it": "^5.0.0",
@@ -64,6 +111,7 @@
     "bumpp": "^8.2.1",
     "chai": "^4.5.0",
     "eslint": "^9.39.1",
+    "gh-pages": "^6.1.1",
     "markdown-it": "^14.1.0",
     "markdown-it-for-inline": "^2.0.1",
     "markdown-it-testgen": "^0.1.6",

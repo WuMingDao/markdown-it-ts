@@ -80,6 +80,39 @@ buffer.flushForce()
 console.log(buffer.stats()) // 可查看 appendHits/fullParses 等统计
 ```
 
+## 运行上游测试（可选）
+
+本仓库可以在本地运行一部分上游 markdown-it 的测试与病理用例，默认关闭，因为：
+- 需要在本仓库同级放置上游 `markdown-it` 仓库（测试使用相对路径引用其源码与夹具）
+- 依赖网络从 GitHub 拉取参考脚本
+
+启用方法（默认使用“同级目录”方式）：
+
+```bash
+# 目录结构类似：
+#   ../markdown-it/    # 上游仓库（包含 index.mjs 与 fixtures）
+#   ./markdown-it-ts/  # 本仓库
+
+RUN_ORIGINAL=1 pnpm test
+```
+
+说明：
+- 病理用例较重，涉及 worker 与网络，仅在需要时开启。
+- CI 默认保持关闭。
+
+如果不使用同级目录，也可以通过环境变量指定上游路径：
+
+```bash
+MARKDOWN_IT_DIR=/绝对路径/markdown-it RUN_ORIGINAL=1 pnpm test
+```
+
+便捷脚本：
+
+```bash
+pnpm run test:original           # 等价 RUN_ORIGINAL=1 pnpm test
+pnpm run test:original:network   # 同时开启 RUN_NETWORK=1
+```
+
 ## 致谢（Acknowledgements）
 
 本项目在 markdown-it 的设计与实现基础上完成 TypeScript 化与架构重构，

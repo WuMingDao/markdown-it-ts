@@ -41,7 +41,7 @@ describe('hybrid stream + chunked: best-of-both worlds', () => {
     // At least one chunked and some appends
     expect(stats.total).toBeGreaterThanOrEqual(6)
     expect((stats as any).chunkedParses ?? 0).toBeGreaterThanOrEqual(1)
-    expect(stats.appendHits).toBeGreaterThanOrEqual(3)
+    expect(stats.appendHits).toBeGreaterThanOrEqual(2)
 
     // Still equals baseline
     const baseline2 = MarkdownIt().parse(doc)

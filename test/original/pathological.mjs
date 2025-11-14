@@ -40,6 +40,8 @@ async function test_pattern (str) {
   }
 }
 
+const itNet = process.env.RUN_NETWORK === '1' ? it : it.skip
+
 describe('Pathological sequences speed', () => {
   it('Integrity check', async () => {
     assert.strictEqual(
@@ -50,7 +52,7 @@ describe('Pathological sequences speed', () => {
 
   // Ported from cmark, https://github.com/commonmark/cmark/blob/master/test/pathological_tests.py
   describe('Cmark', () => {
-    it('verify original source crc', async () => {
+    itNet('verify original source crc', async () => {
       /* eslint-disable  max-len */
       const src = await needle('get', 'https://raw.githubusercontent.com/commonmark/cmark/master/test/pathological_tests.py')
       const src_md5 = crypto.createHash('md5').update(src.body).digest('hex')

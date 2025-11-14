@@ -1,5 +1,6 @@
 import type { Token } from '../common/token'
 import type { MarkdownIt } from '../index'
+import { countLines } from '../common/utils'
 
 export interface ChunkedOptions {
   maxChunkChars?: number // hard limit per chunk by characters
@@ -153,15 +154,6 @@ export function splitIntoChunks(src: string, opts: Required<Omit<ChunkedOptions,
 
   flush()
   return chunks
-}
-
-function countLines(input: string): number {
-  if (input.length === 0)
-    return 0
-  let count = 0
-  let pos = -1
-  while ((pos = input.indexOf('\n', pos + 1)) !== -1) count++
-  return count
 }
 
 function shiftTokenLines(tokens: Token[], offset: number): void {

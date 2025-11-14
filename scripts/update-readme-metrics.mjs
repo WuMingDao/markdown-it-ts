@@ -52,6 +52,34 @@ function buildAppendExamples(bySize, sizes) {
   return lines
 }
 
+function buildRemarkOneExamples(bySize, sizes) {
+  const lines = []
+  for (const size of sizes) {
+    const arr = bySize.get(size)
+    if (!arr) continue
+    const bestTs = pickBestTsBy(arr, 'oneShotMs')
+    const remark = arr.find(r => r.scenario === 'R1')
+    if (!remark) continue
+    const l = `- ${size.toLocaleString()} chars: ${formatMs(bestTs.oneShotMs)} vs ${formatMs(remark.oneShotMs)} → ${formatFx(remark.oneShotMs, bestTs.oneShotMs)} faster`
+    lines.push(l)
+  }
+  return lines
+}
+
+function buildRemarkAppendExamples(bySize, sizes) {
+  const lines = []
+  for (const size of sizes) {
+    const arr = bySize.get(size)
+    if (!arr) continue
+    const bestTs = pickBestTsBy(arr, 'appendWorkloadMs')
+    const remark = arr.find(r => r.scenario === 'R1')
+    if (!remark) continue
+    const l = `- ${size.toLocaleString()} chars: ${formatMs(bestTs.appendWorkloadMs)} vs ${formatMs(remark.appendWorkloadMs)} → ${formatFx(remark.appendWorkloadMs, bestTs.appendWorkloadMs)} faster`
+    lines.push(l)
+  }
+  return lines
+}
+
 function replaceBetween(content, startTag, endTag, newLines) {
   const startIdx = content.indexOf(startTag)
   const endIdx = content.indexOf(endTag)
@@ -68,20 +96,28 @@ function main() {
 
   const readme = readFileSync(readmePath, 'utf8')
 
-  const oneSizes = [5000, 20000, 50000, 100000]
-  const appendSizes = [20000, 50000]
+  const oneSizes = [5000, 20000, 50000, 100000, 200000]
+  const appendSizes = [5000, 20000, 50000, 100000, 200000]
 
   const oneBlock = buildOneExamples(bySize, oneSizes)
   const appBlock = buildAppendExamples(bySize, appendSizes)
+  const remarkOneBlock = buildRemarkOneExamples(bySize, oneSizes)
+  const remarkAppBlock = buildRemarkAppendExamples(bySize, appendSizes)
 
   const startOne = '<!-- perf-auto:one-examples:start -->'
   const endOne = '<!-- perf-auto:one-examples:end -->'
   const startApp = '<!-- perf-auto:append-examples:start -->'
   const endApp = '<!-- perf-auto:append-examples:end -->'
+  const startRemarkOne = '<!-- perf-auto:remark-one:start -->'
+  const endRemarkOne = '<!-- perf-auto:remark-one:end -->'
+  const startRemarkApp = '<!-- perf-auto:remark-append:start -->'
+  const endRemarkApp = '<!-- perf-auto:remark-append:end -->'
 
   let updated = readme
   updated = replaceBetween(updated, startOne, endOne, oneBlock)
   updated = replaceBetween(updated, startApp, endApp, appBlock)
+  updated = replaceBetween(updated, startRemarkOne, endRemarkOne, remarkOneBlock)
+  updated = replaceBetween(updated, startRemarkApp, endRemarkApp, remarkAppBlock)
 
   writeFileSync(readmePath, updated)
   console.log('README metrics updated from docs/perf-latest.json')

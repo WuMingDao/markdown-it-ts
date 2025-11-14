@@ -79,12 +79,13 @@ const html = md.render('# Hello World')
 console.log(html)
 ```
 
-If you only need the renderer without the full instance (for tree-shaken builds), you can still import it directly:
+If you initially import core-only and want to attach rendering (to keep bundles smaller when only parse is needed elsewhere), use the provided helper:
 
 ```typescript
-import { render } from 'markdown-it-ts/render'
+import markdownIt, { withRenderer } from 'markdown-it-ts'
 
-const html = render('# Hello World')
+const md = withRenderer(markdownIt())
+const html = md.render('# Hello World')
 console.log(html)
 ```
 
@@ -101,6 +102,19 @@ const md = markdownIt()
 
 const result = md.render('Some markdown content')
 console.log(result)
+```
+
+Subpath exports
+
+For advanced or tree-shaken imports you can target subpaths directly:
+
+```ts
+import { Token } from 'markdown-it-ts/common/token'
+import { withRenderer } from 'markdown-it-ts/plugins/with-renderer'
+import Renderer from 'markdown-it-ts/render/renderer'
+import { StreamBuffer } from 'markdown-it-ts/stream/buffer'
+import { chunkedParse } from 'markdown-it-ts/stream/chunked'
+import { DebouncedStreamParser, ThrottledStreamParser } from 'markdown-it-ts/stream/debounced'
 ```
 
 ### Plugin Authoring (Type-Safe)
@@ -202,21 +216,85 @@ To make sure each change is not slower than the previous run at any tested size/
 
 See `docs/perf-regression.md` for details and CI usage.
 
+## Upstream Test Suites (optional)
+
+This repo can run a subset of the original markdown-it tests and pathological cases. They are disabled by default because they require:
+- A sibling checkout of the upstream `markdown-it` repo (referenced by relative path in tests)
+- Network access for fetching reference scripts
+
+To enable upstream tests locally:
+
+```bash
+# Ensure directory layout like:
+#   ../markdown-it/    # upstream repo with index.mjs and fixtures
+#   ./markdown-it-ts/  # this repo
+
+RUN_ORIGINAL=1 pnpm test
+```
+
+Notes
+- Pathological tests are heavy and use worker threads and network; enable only when needed.
+- CI keeps these disabled by default.
+
+Alternative: set a custom upstream path without sibling layout
+
+```bash
+# Point to a local checkout of markdown-it
+MARKDOWN_IT_DIR=/absolute/path/to/markdown-it RUN_ORIGINAL=1 pnpm test
+```
+
+Convenience scripts
+
+```bash
+pnpm run test:original           # same as RUN_ORIGINAL=1 pnpm test
+pnpm run test:original:network   # also sets RUN_NETWORK=1
+```
+
 ## Parse performance vs markdown-it
 
 Latest one-shot parse results on this machine (Node.js v23): markdown-it-ts is roughly at parity with upstream markdown-it in the 5k–100k range.
 
 Examples from the latest run (avg over 20 iterations):
 <!-- perf-auto:one-examples:start -->
-- 5,000 chars: 0.00ms vs 0.39ms → ~2231.9× faster (0.00× time)
-- 20,000 chars: 0.92ms vs 2.33ms → ~2.5× faster (0.40× time)
-- 50,000 chars: 2.53ms vs 2.16ms → ~0.9× faster (1.17× time)
-- 100,000 chars: 5.67ms vs 4.93ms → ~0.9× faster (1.15× time)
+- 5,000 chars: 0.00ms vs 0.43ms → ~2627.6× faster (0.00× time)
+- 20,000 chars: 0.97ms vs 0.84ms → ~0.9× faster (1.16× time)
+- 50,000 chars: 2.59ms vs 2.20ms → ~0.8× faster (1.18× time)
+- 100,000 chars: 5.58ms vs 4.94ms → ~0.9× faster (1.13× time)
+- 200,000 chars: 12.35ms vs 13.31ms → ~1.1× faster (0.93× time)
 <!-- perf-auto:one-examples:end -->
 
-Notes
+- Notes
 - Numbers vary by Node version, CPU, and content shape; see `docs/perf-latest.md` for the full table and environment details.
 - Streaming/incremental mode is correctness-first by default. For editor-style input, using `StreamBuffer` to flush at block boundaries can yield meaningful wins on append-heavy workloads.
+
+### Parse performance vs remark
+
+We also compare parse-only performance against `remark` (parse-only). The following figures are taken from the latest archived snapshot `docs/perf-history/perf-d660c6e.json` (generatedAt 2025-11-14, Node v23.7.0) and show one-shot parse times and append-workload times reported by the harness.
+
+One-shot parse (oneShotMs) — markdown-it-ts vs remark (lower is better):
+
+<!-- perf-auto:remark-one:start -->
+- 5,000 chars: 0.00ms vs 6.28ms → 38645.9× faster
+- 20,000 chars: 0.97ms vs 27.84ms → 28.6× faster
+- 50,000 chars: 2.59ms vs 77.26ms → 29.8× faster
+- 100,000 chars: 5.58ms vs 168.28ms → 30.2× faster
+- 200,000 chars: 12.35ms vs 436.27ms → 35.3× faster
+<!-- perf-auto:remark-one:end -->
+
+Append workload (appendWorkloadMs) — markdown-it-ts vs remark:
+
+<!-- perf-auto:remark-append:start -->
+- 5,000 chars: 0.44ms vs 19.30ms → 43.9× faster
+- 20,000 chars: 1.25ms vs 91.79ms → 73.6× faster
+- 50,000 chars: 3.51ms vs 252.39ms → 72.0× faster
+- 100,000 chars: 17.95ms vs 568.25ms → 31.7× faster
+- 200,000 chars: 40.55ms vs 1304.01ms → 32.2× faster
+<!-- perf-auto:remark-append:end -->
+
+Notes on interpretation
+- These numbers compare parse-only times produced by the project's perf harness. `remark` workflows often include additional tree transforms/plugins; real-world workloads may differ.
+- Results are machine- and content-dependent. For reproducible comparisons run the local harness and compare `docs/perf-latest.json` or the archived `docs/perf-history/*.json` files.
+- Source: `docs/perf-history/perf-d660c6e.json` (one-shot and appendWorkload values).
 
 Reproduce locally
 

@@ -1,0 +1,53 @@
+name: Upstream Tests (optional)
+on:
+  workflow_dispatch:
+    inputs:
+      markdown-it-ref:
+        description: markdown-it ref (branch, tag, or SHA)
+        required: false
+        default: master
+      run-network:
+        description: Enable network-dependent CRC check
+        required: false
+        default: false
+      node-version:
+        description: Node.js version
+        required: false
+        default: 20
+
+jobs:
+  upstream:
+    name: Run original upstream tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Checkout upstream markdown-it
+        uses: actions/checkout@v4
+        with:
+          repository: markdown-it/markdown-it
+          ref: ${{ github.event.inputs["markdown-it-ref"] || 'master' }}
+          path: markdown-it
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ github.event.inputs["node-version"] || '20' }}
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run upstream tests (original)
+        env:
+          RUN_ORIGINAL: 1
+          MARKDOWN_IT_DIR: ${{ github.workspace }}/markdown-it
+          RUN_NETWORK: ${{ github.event.inputs["run-network"] == true && 1 || '' }}
+        run: pnpm test

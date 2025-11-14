@@ -17,9 +17,11 @@ export { Token } from './common/token'
 
 export { parse, parseInline } from './parse'
 export { withRenderer } from './plugins/with-renderer'
+export type { RendererEnv, RendererOptions } from './render'
 export { StreamBuffer } from './stream/buffer'
 export { chunkedParse } from './stream/chunked'
 export type { ChunkedOptions } from './stream/chunked'
+export { DebouncedStreamParser, ThrottledStreamParser } from './stream/debounced'
 export type { StreamStats } from './stream/parser'
 export { recommendFullChunkStrategy, recommendStreamChunkStrategy } from './support/chunk_recommend'
 
@@ -164,14 +166,20 @@ function markdownIt(presetName?: string | MarkdownItOptions, options?: MarkdownI
 
   // Normalize quotes option: convert string to array if needed
   if (typeof opts.quotes === 'string') {
-    // Split string into array of characters: '""''' -> ['"', '"', ''', ''']
+    // Split string into array of characters and validate length
     const quotesStr = opts.quotes
-    opts.quotes = [
-      quotesStr[0], // double open
-      quotesStr[1], // double close
-      quotesStr[2], // single open
-      quotesStr[3], // single close
-    ] as [string, string, string, string]
+    if (quotesStr.length >= 4) {
+      opts.quotes = [
+        quotesStr[0], // double open
+        quotesStr[1], // double close
+        quotesStr[2], // single open
+        quotesStr[3], // single close
+      ] as [string, string, string, string]
+    }
+    else {
+      // Fallback to defaults if malformed
+      opts.quotes = ['\u201C', '\u201D', '\u2018', '\u2019']
+    }
   }
 
   // construct minimal core instance; avoid importing renderer here
@@ -291,7 +299,7 @@ function markdownIt(presetName?: string | MarkdownItOptions, options?: MarkdownI
       // Optional chunked path for full parse (non-stream)
       if (!this.stream.enabled) {
         const chars = src.length
-        const lines = src.split('\n').length - 1
+        const lines = utils.countLines(src)
         if (this.options.fullChunkedFallback) {
           // Best-practice auto-tuning: choose strategy by size if user didn't force a strategy
           const auto = this.options.autoTuneChunks !== false
@@ -311,8 +319,8 @@ function markdownIt(presetName?: string | MarkdownItOptions, options?: MarkdownI
             else if (chars <= 20_000) {
               return chunkedParse(this, src, env, { maxChunkChars: 24_000, maxChunkLines: 200, fenceAware, maxChunks: 12 })
             }
-            else if (chars <= 50_000 || chars <= 100_000) {
-              // plain full parse preferred at 50k/100k
+            else if (chars <= 100_000) {
+              // plain full parse preferred up to 100k
             }
             else if (chars <= 200_000) {
               return chunkedParse(this, src, env, { maxChunkChars: 20_000, maxChunkLines: 150, fenceAware, maxChunks: 12 })
